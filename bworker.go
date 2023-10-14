@@ -1,25 +1,6 @@
 package bworker
 
-import (
-	"sync"
-)
-
-type BWorker interface {
-	// Do submit a job to be executed by a worker.
-	Do(job Job)
-
-	// Wait for all jobs to be completed.
-	Wait()
-
-	// Shutdown shut down the worker pool.
-	Shutdown()
-
-	// ResetErr reset the error variable when you are using option WithError.
-	ResetErr()
-
-	// ResetErrs reset the slice of error variables when you are using option WithErrors.
-	ResetErrs()
-}
+import "sync"
 
 type bWorker struct {
 	wg    *sync.WaitGroup
@@ -35,9 +16,6 @@ type bWorker struct {
 	shutdown bool
 }
 
-// Job represent a function to be executed by a worker.
-type Job func() error
-
 // NewBWorker creates a new worker pool with the specified concurrency level and Option(s).
 func NewBWorker(concurrency int, opts ...Option) BWorker {
 	bw := bWorker{
@@ -51,47 +29,6 @@ func NewBWorker(concurrency int, opts ...Option) BWorker {
 	bw.jobs = make(chan Job, bw.optJobBuffer)
 	bw.startWorkers(concurrency)
 	return &bw
-}
-
-func (bw *bWorker) startWorkers(numWorkers int) {
-	if numWorkers <= 0 {
-		numWorkers = 1
-	}
-	bw.wg.Add(numWorkers)
-	for i := 0; i < numWorkers; i++ {
-		go bw.startWorker()
-	}
-}
-
-func (bw *bWorker) startWorker() {
-	defer bw.wg.Done()
-	for job := range bw.jobs {
-		bw.execute(job)
-	}
-}
-
-func (bw *bWorker) execute(job Job) {
-	defer bw.jobWG.Done()
-	attempts := 1 + bw.optRetry
-	for attempt := 0; attempt < attempts; attempt++ {
-		err := job()
-		if err == nil {
-			return
-		}
-		if attempt != attempts-1 {
-			continue
-		}
-		if bw.optErr != nil {
-			bw.mu.Lock()
-			*bw.optErr = err
-			bw.mu.Unlock()
-		}
-		if bw.optErrs != nil {
-			bw.mu.Lock()
-			*bw.optErrs = append(*bw.optErrs, err)
-			bw.mu.Unlock()
-		}
-	}
 }
 
 func (bw *bWorker) Do(job Job) {
@@ -135,4 +72,21 @@ func (bw *bWorker) ResetErrs() {
 	bw.mu.Lock()
 	*bw.optErrs = nil
 	bw.mu.Unlock()
+}
+
+func (bw *bWorker) startWorkers(numWorkers int) {
+	if numWorkers <= 0 {
+		numWorkers = 1
+	}
+	bw.wg.Add(numWorkers)
+	for i := 0; i < numWorkers; i++ {
+		go bw.startWorker()
+	}
+}
+
+func (bw *bWorker) startWorker() {
+	defer bw.wg.Done()
+	for job := range bw.jobs {
+		job.execute(bw.optRetry, bw.jobWG, bw.mu, bw.optErr, bw.optErrs)
+	}
 }

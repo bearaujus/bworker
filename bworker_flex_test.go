@@ -7,21 +7,16 @@ import (
 	"testing"
 )
 
-func TestBWorker(t *testing.T) {
-	t.Run("use default num worker", func(t *testing.T) {
-		bw := NewBWorker(0)
-		defer bw.Shutdown()
-	})
-
+func TestBWorkerFlex(t *testing.T) {
 	t.Run("execute nil job", func(t *testing.T) {
-		bw := NewBWorker(1)
+		bw := NewBWorkerFlex()
 		defer bw.Shutdown()
 
 		bw.Do(nil)
 	})
 
 	t.Run("execute operation when already shut down", func(t *testing.T) {
-		bw := NewBWorker(1)
+		bw := NewBWorkerFlex()
 		bw.Shutdown()
 
 		bw.Do(func() error { return nil })
@@ -30,7 +25,7 @@ func TestBWorker(t *testing.T) {
 	})
 
 	t.Run("use reset when error option not set", func(t *testing.T) {
-		bw := NewBWorker(1)
+		bw := NewBWorkerFlex()
 		defer bw.Shutdown()
 
 		bw.ResetErr()
@@ -38,11 +33,10 @@ func TestBWorker(t *testing.T) {
 	})
 
 	t.Run("test corner case for worker option", func(t *testing.T) {
-		bw := NewBWorker(1,
-			WithJobBuffer(0),
-			WithRetry(0),
-			WithError(nil),
-			WithErrors(nil),
+		bw := NewBWorkerFlex(
+			WithRetryFlex(0),
+			WithErrorFlex(nil),
+			WithErrorsFlex(nil),
 		)
 		defer bw.Shutdown()
 	})
@@ -52,11 +46,10 @@ func TestBWorker(t *testing.T) {
 		var errs []error
 		numRetry := 3
 
-		bw := NewBWorker(10,
-			WithJobBuffer(10),
-			WithRetry(numRetry),
-			WithError(&err),
-			WithErrors(&errs),
+		bw := NewBWorkerFlex(
+			WithRetryFlex(numRetry),
+			WithErrorFlex(&err),
+			WithErrorsFlex(&errs),
 		)
 
 		numJob, wantErrLen, retried, mu := 100, 50, 0, &sync.Mutex{}
