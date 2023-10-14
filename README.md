@@ -21,7 +21,7 @@ emails to more complex tasks such as processing large datasets.
 To install BWorker, you can run the following command:
 
 ```shell
-go get github.com/bearaujus/bjson
+go get github.com/bearaujus/bworker
 ```
 
 ## Usage
