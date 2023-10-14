@@ -31,8 +31,7 @@ func (bwf *bWorkerFlex) Do(job Job) {
 	if job == nil || bwf.shutdown {
 		return
 	}
-	bwf.jobWG.Add(1)
-	go job.execute(bwf.optRetry, bwf.jobWG, bwf.mu, bwf.optErr, bwf.optErrs)
+	job.executeInBackground(bwf.jobWG, bwf.mu, bwf.optRetry, bwf.optErr, bwf.optErrs)
 }
 
 func (bwf *bWorkerFlex) Wait() {
@@ -51,19 +50,9 @@ func (bwf *bWorkerFlex) Shutdown() {
 }
 
 func (bwf *bWorkerFlex) ResetErr() {
-	if bwf.optErr == nil {
-		return
-	}
-	bwf.mu.Lock()
-	*bwf.optErr = nil
-	bwf.mu.Unlock()
+	resetOptErrIfUsed(bwf.mu, bwf.optErr)
 }
 
 func (bwf *bWorkerFlex) ResetErrs() {
-	if bwf.optErrs == nil {
-		return
-	}
-	bwf.mu.Lock()
-	*bwf.optErrs = nil
-	bwf.mu.Unlock()
+	resetOptErrsIfUsed(bwf.mu, bwf.optErrs)
 }

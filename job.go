@@ -5,7 +5,17 @@ import "sync"
 // Job represent a function to be executed by a worker.
 type Job func() error
 
-func (j Job) execute(retry int, wg *sync.WaitGroup, mu *sync.Mutex, optErr *error, optErrs *[]error) {
+func (j Job) executeInBackground(wg *sync.WaitGroup, mu *sync.Mutex, retry int, optErr *error, optErrs *[]error) {
+	wg.Add(1)
+	go j.do(wg, mu, retry, optErr, optErrs)
+}
+
+func (j Job) queueToChan(wg *sync.WaitGroup, c chan Job) {
+	wg.Add(1)
+	c <- j
+}
+
+func (j Job) do(wg *sync.WaitGroup, mu *sync.Mutex, retry int, optErr *error, optErrs *[]error) {
 	defer wg.Done()
 	attempts := 1 + retry
 	for attempt := 0; attempt < attempts; attempt++ {
@@ -16,15 +26,7 @@ func (j Job) execute(retry int, wg *sync.WaitGroup, mu *sync.Mutex, optErr *erro
 		if attempt != attempts-1 {
 			continue
 		}
-		if optErr != nil {
-			mu.Lock()
-			*optErr = err
-			mu.Unlock()
-		}
-		if optErrs != nil {
-			mu.Lock()
-			*optErrs = append(*optErrs, err)
-			mu.Unlock()
-		}
+		setOptErrIfUsed(mu, optErr, err)
+		appendOptErrsIfUsed(mu, optErrs, err)
 	}
 }

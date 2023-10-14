@@ -32,7 +32,16 @@ func TestBWorkerFlex(t *testing.T) {
 		bw.ResetErrs()
 	})
 
-	t.Run("test corner case for worker option", func(t *testing.T) {
+	t.Run("occur error when error option not set", func(t *testing.T) {
+		bw := NewBWorkerFlex()
+		defer bw.Shutdown()
+
+		bw.Do(func() error {
+			return errors.New("an error")
+		})
+	})
+
+	t.Run("test corner case for worker flex option", func(t *testing.T) {
 		bw := NewBWorkerFlex(
 			WithRetryFlex(0),
 			WithErrorFlex(nil),

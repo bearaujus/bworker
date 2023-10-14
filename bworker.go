@@ -35,8 +35,7 @@ func (bw *bWorker) Do(job Job) {
 	if job == nil || bw.shutdown {
 		return
 	}
-	bw.jobWG.Add(1)
-	bw.jobs <- job
+	job.queueToChan(bw.jobWG, bw.jobs)
 }
 
 func (bw *bWorker) Wait() {
@@ -57,21 +56,11 @@ func (bw *bWorker) Shutdown() {
 }
 
 func (bw *bWorker) ResetErr() {
-	if bw.optErr == nil {
-		return
-	}
-	bw.mu.Lock()
-	*bw.optErr = nil
-	bw.mu.Unlock()
+	resetOptErrIfUsed(bw.mu, bw.optErr)
 }
 
 func (bw *bWorker) ResetErrs() {
-	if bw.optErrs == nil {
-		return
-	}
-	bw.mu.Lock()
-	*bw.optErrs = nil
-	bw.mu.Unlock()
+	resetOptErrsIfUsed(bw.mu, bw.optErrs)
 }
 
 func (bw *bWorker) startWorkers(numWorkers int) {
@@ -87,6 +76,6 @@ func (bw *bWorker) startWorkers(numWorkers int) {
 func (bw *bWorker) startWorker() {
 	defer bw.wg.Done()
 	for job := range bw.jobs {
-		job.execute(bw.optRetry, bw.jobWG, bw.mu, bw.optErr, bw.optErrs)
+		job.do(bw.jobWG, bw.mu, bw.optRetry, bw.optErr, bw.optErrs)
 	}
 }

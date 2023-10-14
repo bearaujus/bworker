@@ -37,6 +37,15 @@ func TestBWorker(t *testing.T) {
 		bw.ResetErrs()
 	})
 
+	t.Run("occur error when error option not set", func(t *testing.T) {
+		bw := NewBWorker(1)
+		defer bw.Shutdown()
+
+		bw.Do(func() error {
+			return errors.New("an error")
+		})
+	})
+
 	t.Run("test corner case for worker option", func(t *testing.T) {
 		bw := NewBWorker(1,
 			WithJobBuffer(0),
