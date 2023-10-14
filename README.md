@@ -116,7 +116,7 @@ shows how to submit a task to a worker pool with options:
 
 ```go
 bw.Do(func () error {
-// ...
+	// ...
 })
 ```
 
