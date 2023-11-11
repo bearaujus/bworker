@@ -1,7 +1,11 @@
-package bworker
+package option
+
+import (
+	"github.com/bearaujus/bworker/internal"
+)
 
 type Option interface {
-	Apply(*bWorker)
+	Apply(o *internal.Option)
 }
 
 // WithJobBuffer sets the size of the job buffer.
@@ -11,11 +15,11 @@ func WithJobBuffer(n int) Option {
 
 type withJobBuffer struct{ n int }
 
-func (w *withJobBuffer) Apply(bw *bWorker) {
+func (w *withJobBuffer) Apply(o *internal.Option) {
 	if w.n <= 0 {
 		return
 	}
-	bw.optJobBuffer = w.n
+	o.JobBuffer = w.n
 }
 
 // WithRetry sets the number of times to retry a failed job.
@@ -25,11 +29,11 @@ func WithRetry(n int) Option {
 
 type withRetry struct{ n int }
 
-func (w *withRetry) Apply(bw *bWorker) {
+func (w *withRetry) Apply(o *internal.Option) {
 	if w.n <= 0 {
 		return
 	}
-	bw.optRetry = w.n
+	o.Retry = w.n
 }
 
 // WithError sets a pointer to an error variable that will be populated if any job fails.
@@ -39,11 +43,8 @@ func WithError(err *error) Option {
 
 type withError struct{ err *error }
 
-func (w *withError) Apply(bw *bWorker) {
-	if w.err == nil {
-		return
-	}
-	bw.optErr = w.err
+func (w *withError) Apply(o *internal.Option) {
+	o.Err = internal.NewErrMem(w.err)
 }
 
 // WithErrors sets a pointer to a slice of error variables that will be populated if any jobs fail.
@@ -53,9 +54,6 @@ func WithErrors(errs *[]error) Option {
 
 type withErrors struct{ errs *[]error }
 
-func (w *withErrors) Apply(bw *bWorker) {
-	if w.errs == nil {
-		return
-	}
-	bw.optErrs = w.errs
+func (w *withErrors) Apply(o *internal.Option) {
+	o.Errs = internal.NewErrsMem(w.errs)
 }

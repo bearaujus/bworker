@@ -1,81 +1,96 @@
 package bworker
 
-import "sync"
+import (
+	"github.com/bearaujus/bworker/internal"
+	"github.com/bearaujus/bworker/option"
+	"sync"
+	"sync/atomic"
+)
 
 type bWorker struct {
-	wg    *sync.WaitGroup
-	mu    *sync.Mutex
-	jobWG *sync.WaitGroup
-	jobs  chan Job
-
-	optJobBuffer int
-	optRetry     int
-	optErr       *error
-	optErrs      *[]error
-
-	shutdown bool
+	wgWorker   *sync.WaitGroup
+	jobManager *internal.JobManager
+	jobs       chan internal.PendingJob
+	option     *internal.Option
+	shutdown   *atomic.Bool
 }
 
 // NewBWorker creates a new worker pool with the specified concurrency level and Option(s).
-func NewBWorker(concurrency int, opts ...Option) BWorker {
-	bw := bWorker{
-		wg:    &sync.WaitGroup{},
-		mu:    &sync.Mutex{},
-		jobWG: &sync.WaitGroup{},
+func NewBWorker(concurrency int, opts ...option.Option) BWorker {
+	// set to default concurrency
+	if concurrency <= 0 {
+		concurrency = 1
 	}
+	bwOpt := internal.Option{}
 	for _, opt := range opts {
-		opt.Apply(&bw)
+		opt.Apply(&bwOpt)
 	}
-	bw.jobs = make(chan Job, bw.optJobBuffer)
-	bw.startWorkers(concurrency)
+	bw := bWorker{
+		wgWorker:   &sync.WaitGroup{},
+		jobManager: internal.NewJobManager(bwOpt.Err, bwOpt.Errs),
+		jobs:       make(chan internal.PendingJob, bwOpt.JobBuffer), // expected if job buffer is 0
+		option:     &bwOpt,
+		shutdown:   &atomic.Bool{},
+	}
+	// create workers
+	bw.wgWorker.Add(concurrency)
+	for i := 0; i < concurrency; i++ {
+		go func() {
+			defer bw.wgWorker.Done()
+			for job := range bw.jobs {
+				job(bw.option.Retry)
+			}
+		}()
+	}
 	return &bw
 }
 
-func (bw *bWorker) Do(job Job) {
-	if job == nil || bw.shutdown {
+func (bw *bWorker) Do(job func() error) {
+	if bw.shutdown.Load() || job == nil {
 		return
 	}
-	job.queueToChan(bw.jobWG, bw.jobs)
+	pendingJob := bw.jobManager.New(job)
+	bw.jobs <- pendingJob
+}
+
+func (bw *bWorker) DoSimple(job func()) {
+	if bw.shutdown.Load() || job == nil {
+		return
+	}
+	pendingJob := bw.jobManager.NewSimple(job)
+	bw.jobs <- pendingJob
 }
 
 func (bw *bWorker) Wait() {
-	if bw.shutdown {
+	if bw.shutdown.Load() {
 		return
 	}
-	bw.jobWG.Wait()
+	bw.jobManager.Wait()
 }
 
 func (bw *bWorker) Shutdown() {
-	if bw.shutdown {
+	if !bw.shutdown.CompareAndSwap(false, true) {
 		return
 	}
-	bw.shutdown = true
 	close(bw.jobs)
-	bw.jobWG.Wait()
-	bw.wg.Wait()
+	bw.jobManager.Wait()
+	bw.wgWorker.Wait()
+}
+
+func (bw *bWorker) IsDead() bool {
+	return bw.shutdown.Load()
 }
 
 func (bw *bWorker) ResetErr() {
-	resetOptErrIfUsed(bw.mu, bw.optErr)
+	if bw.option.Err == nil {
+		return
+	}
+	bw.option.Err.Clear()
 }
 
 func (bw *bWorker) ResetErrs() {
-	resetOptErrsIfUsed(bw.mu, bw.optErrs)
-}
-
-func (bw *bWorker) startWorkers(numWorkers int) {
-	if numWorkers <= 0 {
-		numWorkers = 1
+	if bw.option.Errs == nil {
+		return
 	}
-	bw.wg.Add(numWorkers)
-	for i := 0; i < numWorkers; i++ {
-		go bw.startWorker()
-	}
-}
-
-func (bw *bWorker) startWorker() {
-	defer bw.wg.Done()
-	for job := range bw.jobs {
-		job.do(bw.jobWG, bw.mu, bw.optRetry, bw.optErr, bw.optErrs)
-	}
+	bw.option.Errs.Clear()
 }

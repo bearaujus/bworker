@@ -14,7 +14,6 @@ emails to more complex tasks such as processing large datasets.
   execution of those jobs.
 - **Error handling:** BWorker provides a way to handle errors that occur during job execution.
 - **Job retry**: BWorker can automatically retry jobs that fail, a specified number of times.
-- **Shutdown:** BWorker provides a way to gracefully shut down your worker pool.
 
 ## Installation
 
@@ -44,11 +43,12 @@ import (
 	"fmt"
 
 	"github.com/bearaujus/bworker"
+	"github.com/bearaujus/bworker/option"
 )
 
 func main() {
 	// Create a new BWorker instance with 10 concurrent workers and a retry count of 2.
-	bw := bworker.NewBWorker(10, bworker.WithRetry(2))
+	bw := bworker.NewBWorker(10, option.WithRetry(2))
 	defer bw.Shutdown()
 
 	// Add a job to the worker pool.
@@ -88,35 +88,39 @@ To use the options that BWorker provides, you can pass them to the `NewBWorker()
 code creates a new worker pool with 4 workers and a job buffer of 10:
 
 ```go
-bw := bworker.NewBWorker(4, bworker.WithJobBuffer(10))
+bw := bworker.NewBWorker(4, option.WithJobBuffer(10))
 ```
 
 The following code creates a new worker pool with 4 workers and a retry count of 3:
 
 ```go
-bw := bworker.NewBWorker(4, bworker.WithRetry(3))
+bw := bworker.NewBWorker(4, option.WithRetry(3))
 ```
 
 The following code creates a new worker pool with 4 workers and an error variable:
 
 ```go
 var err error
-bw := bworker.NewBWorker(4, bworker.WithError(&err))
+bw := bworker.NewBWorker(4, option.WithError(&err))
 ```
 
 The following code creates a new worker pool with 4 workers and a slice of error variables:
 
 ```go
 var errs []error
-bw := bworker.NewBWorker(4, bworker.WithErrors(&errs))
+bw := bworker.NewBWorker(4, option.WithErrors(&errs))
 ```
 
 Once you have created a worker pool with options, you can use it just like a regular worker pool. The following code
 shows how to submit a task to a worker pool with options:
 
 ```go
-bw.Do(func () error {
-	// ...
+bw.Do(func () error { 
+   // ...
+})
+
+bw.DoSimple(func () {
+   // ...
 })
 ```
 
@@ -126,17 +130,23 @@ The following code shows how to wait for all of the tasks in a worker pool with 
 bw.Wait()
 ```
 
-The following code shows how to shutdown a worker pool with options:
+The following code shows how to shut down a worker pool with options:
 
 ```go
 bw.Shutdown()
+```
+
+The following code shows how to check the current instance status:
+
+```go
+dead := bw.IsDead()
 ```
 
 You can also use options to combine different features. For example, the following code creates a new worker pool with 4
 workers, a job buffer of 10, and a retry count of 3:
 
 ```go
-bw := bworker.NewBWorker(4, bworker.WithJobBuffer(10), bworker.WithRetry(3))
+bw := bworker.NewBWorker(4, option.WithJobBuffer(10), option.WithRetry(3))
 ```
 
 ## Options
@@ -156,9 +166,10 @@ The following options are currently available:
 
 ## TODO
 
-- Add BWorkerFlex documentation
+- Add `NewFlexBWorker` documentation
 - Add backoff retry
 - Add fixed delay retry
+- Function `Do` at `NewBWorker` sometimes will block, so we need to handle that to add `DoWithContext`
 
 ## License
 

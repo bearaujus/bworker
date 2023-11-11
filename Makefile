@@ -1,14 +1,14 @@
-.PHONY: test-all
-test-all:
-	make test
-	make test-race
+.PHONY: test-sync
+test-sync:
+	@go clean -testcache
+	go test ./... --cover
+
+.PHONY: test-async
+test-async:
+	@go clean -testcache
+	go test ./... --cover --race
 
 .PHONY: test
 test:
-	go clean -testcache
-	go test ./... --cover
-
-.PHONY: test-race
-test-race:
-	go clean -testcache
-	go test ./... --cover --race
+	@make test-sync
+	@make test-async
