@@ -3,18 +3,18 @@ package internal
 import "sync"
 
 type JobManager struct {
-	wg      *sync.WaitGroup
-	optErr  *ErrMem
-	optErrs *ErrsMem
+	wg           *sync.WaitGroup
+	numJobRetry  int
+	errorManager *ErrorManager
 }
 
-type PendingJob func(numRetry int)
+type PendingJob func()
 
 func (jm *JobManager) New(job func() error) PendingJob {
 	jm.wg.Add(1)
-	return func(numRetry int) {
+	return func() {
 		defer jm.wg.Done()
-		attempts := 1 + numRetry // 1 (base attempt) + num retry(s)
+		attempts := 1 + jm.numJobRetry // 1 (base attempt) + num retry(s)
 		for attempt := 0; attempt < attempts; attempt++ {
 			err := job()
 			if err == nil {
@@ -23,12 +23,7 @@ func (jm *JobManager) New(job func() error) PendingJob {
 			if attempt != attempts-1 {
 				continue
 			}
-			if jm.optErr != nil {
-				jm.optErr.SetIfNotNil(err)
-			}
-			if jm.optErrs != nil {
-				jm.optErrs.AppendIfNotNil(err)
-			}
+			jm.errorManager.SetIfNotNil(err)
 		}
 	}
 }
@@ -44,10 +39,10 @@ func (jm *JobManager) Wait() {
 	jm.wg.Wait()
 }
 
-func NewJobManager(optErr *ErrMem, optErrs *ErrsMem) *JobManager {
+func NewJobManager(numJobRetry int, errorManager *ErrorManager) *JobManager {
 	return &JobManager{
-		wg:      &sync.WaitGroup{},
-		optErr:  optErr,
-		optErrs: optErrs,
+		wg:           &sync.WaitGroup{},
+		numJobRetry:  numJobRetry,
+		errorManager: errorManager,
 	}
 }

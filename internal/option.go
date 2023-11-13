@@ -1,14 +1,17 @@
 package internal
 
-type Option struct {
-	JobBuffer int
-	Retry     int
-	Err       *ErrMem
-	Errs      *ErrsMem
+import "time"
+
+type OptionPool struct {
+	JobPoolSize        int
+	WorkerStartupDelay time.Duration
+	Retry              int
+	Err                *error
+	Errs               *[]error
 }
 
-type FlexOption struct {
+type OptionFlex struct {
 	Retry int
-	Err   *ErrMem
-	Errs  *ErrsMem
+	Err   *error
+	Errs  *[]error
 }
