@@ -1,15 +1,17 @@
+test_cmd := go test $(shell go list ./... | grep -v "go\\.work")
+
 .PHONY: test-no-race
 test-no-race:
 	@go clean -testcache
-	go test ./... --cover
+	@$(test_cmd) --cover
 
 .PHONY: test-race
 test-race:
 	@go clean -testcache
-	go test ./... --cover --race
+	@$(test_cmd) --cover --race
 
 .PHONY: test
 test:
 	@go mod tidy
-	@make test-no-race
-	@make test-race
+	make test-no-race
+	make test-race
