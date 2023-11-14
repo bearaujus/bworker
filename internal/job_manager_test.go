@@ -3,7 +3,7 @@ package internal
 import (
 	"errors"
 	"github.com/stretchr/testify/assert"
-	"sync/atomic"
+	"sync"
 	"testing"
 )
 
@@ -16,7 +16,7 @@ func TestJobManager(t *testing.T) {
 	tests := []struct {
 		name        string
 		args        args
-		runner      func(jm *JobManager) *atomic.Int64
+		runner      func(jm *JobManager) *int64
 		wantRet     int64
 		wantErr     bool
 		wantErrsLen int
@@ -28,13 +28,17 @@ func TestJobManager(t *testing.T) {
 				e:           nil,
 				es:          nil,
 			},
-			runner: func(jm *JobManager) *atomic.Int64 {
-				ret := &atomic.Int64{}
+			runner: func(jm *JobManager) *int64 {
+				var ret int64
+				var mu = &sync.Mutex{}
 
-				j1 := jm.NewSimple(func() { ret.Add(1) })
+				j1 := jm.NewSimple(func() {
+					mu.Lock()
+					defer mu.Unlock()
+					ret++
+				})
 				go j1()
-				jm.Wait()
-				return ret
+				return &ret
 			},
 			wantRet:     1,
 			wantErr:     false,
@@ -53,18 +57,24 @@ func TestJobManager(t *testing.T) {
 					return &errs
 				}(),
 			},
-			runner: func(jm *JobManager) *atomic.Int64 {
-				ret := &atomic.Int64{}
+			runner: func(jm *JobManager) *int64 {
+				var ret int64
+				var mu = &sync.Mutex{}
 
-				j1 := jm.NewSimple(func() { ret.Add(1) })
+				j1 := jm.NewSimple(func() {
+					mu.Lock()
+					defer mu.Unlock()
+					ret++
+				})
 				go j1()
 				j2 := jm.New(func() error {
-					ret.Add(1)
+					mu.Lock()
+					defer mu.Unlock()
+					ret++
 					return errors.New("1")
 				})
 				go j2()
-				jm.Wait()
-				return ret
+				return &ret
 			},
 			wantRet:     2,
 			wantErr:     true,
@@ -83,23 +93,31 @@ func TestJobManager(t *testing.T) {
 					return &errs
 				}(),
 			},
-			runner: func(jm *JobManager) *atomic.Int64 {
-				ret := &atomic.Int64{}
+			runner: func(jm *JobManager) *int64 {
+				var ret int64
+				var mu = &sync.Mutex{}
 
-				j1 := jm.NewSimple(func() { ret.Add(1) })
+				j1 := jm.NewSimple(func() {
+					mu.Lock()
+					defer mu.Unlock()
+					ret++
+				})
 				go j1()
 				j2 := jm.New(func() error {
-					ret.Add(1)
-					return errors.New("1")
+					mu.Lock()
+					defer mu.Unlock()
+					ret++
+					return errors.New("an error")
 				})
 				go j2()
 				j3 := jm.New(func() error {
-					ret.Add(1)
-					return errors.New("1")
+					mu.Lock()
+					defer mu.Unlock()
+					ret++
+					return errors.New("an error")
 				})
 				go j3()
-				jm.Wait()
-				return ret
+				return &ret
 			},
 			wantRet:     ((1 + 10) * 2) + 1, // ((base attempt + num retry)*num job with error)+do simple
 			wantErr:     true,
@@ -111,7 +129,8 @@ func TestJobManager(t *testing.T) {
 			jm := NewJobManager(tt.args.numJobRetry, NewErrorManager(tt.args.e, tt.args.es))
 			if tt.runner != nil {
 				gotNumExecuted := tt.runner(jm)
-				assert.Equal(t, tt.wantRet, gotNumExecuted.Load())
+				jm.Wait()
+				assert.Equal(t, tt.wantRet, *gotNumExecuted)
 			}
 			if tt.args.e != nil {
 				if tt.wantErr {

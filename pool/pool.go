@@ -44,7 +44,7 @@ type bWorkerPool struct {
 	jobPool      chan internal.PendingJob
 	errorManager *internal.ErrorManager
 	wgWorker     *sync.WaitGroup
-	shutdown     *atomic.Bool
+	shutdown     *atomic.Value
 }
 
 // NewBWorkerPool create a new BWorkerPool with OptionPool(s) and specified concurrency level.
@@ -61,13 +61,15 @@ func NewBWorkerPool(concurrency int, opts ...OptionPool) BWorkerPool {
 		opt.Apply(o)
 	}
 	em := internal.NewErrorManager(o.Err, o.Errs)
+	sd := &atomic.Value{}
+	sd.Store(false)
 	bwp := &bWorkerPool{
 		jobManager: internal.NewJobManager(o.Retry, em),
 		// If o.JobPoolSize = 0. It's basically the same with o.JobPoolSize = 1
 		jobPool:      make(chan internal.PendingJob, o.JobPoolSize),
 		errorManager: em,
 		wgWorker:     &sync.WaitGroup{},
-		shutdown:     &atomic.Bool{},
+		shutdown:     sd,
 	}
 	var delay time.Duration
 	if concurrency != 1 && o.WorkerStartupDelay != 0 {
@@ -76,7 +78,7 @@ func NewBWorkerPool(concurrency int, opts ...OptionPool) BWorkerPool {
 	bwp.wgWorker.Add(concurrency)
 	go func() {
 		for i := 0; i < concurrency; i++ {
-			if i != 0 && o.WorkerStartupDelay != 0 && !bwp.shutdown.Load() {
+			if i != 0 && o.WorkerStartupDelay != 0 && !bwp.shutdown.Load().(bool) {
 				time.Sleep(delay)
 			}
 			// Create a worker
@@ -93,7 +95,7 @@ func NewBWorkerPool(concurrency int, opts ...OptionPool) BWorkerPool {
 }
 
 func (bwp *bWorkerPool) Do(job func() error) {
-	if bwp.shutdown.Load() || job == nil {
+	if bwp.shutdown.Load().(bool) || job == nil {
 		return
 	}
 	pendingJob := bwp.jobManager.New(job)
@@ -101,7 +103,7 @@ func (bwp *bWorkerPool) Do(job func() error) {
 }
 
 func (bwp *bWorkerPool) DoSimple(job func()) {
-	if bwp.shutdown.Load() || job == nil {
+	if bwp.shutdown.Load().(bool) || job == nil {
 		return
 	}
 	pendingJob := bwp.jobManager.NewSimple(job)
@@ -109,7 +111,7 @@ func (bwp *bWorkerPool) DoSimple(job func()) {
 }
 
 func (bwp *bWorkerPool) Wait() {
-	if bwp.shutdown.Load() {
+	if bwp.shutdown.Load().(bool) {
 		return
 	}
 	// Wait until all jobs executed
@@ -129,7 +131,7 @@ func (bwp *bWorkerPool) Shutdown() {
 }
 
 func (bwp *bWorkerPool) IsDead() bool {
-	return bwp.shutdown.Load()
+	return bwp.shutdown.Load().(bool)
 }
 
 func (bwp *bWorkerPool) ClearErr() {

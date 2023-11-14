@@ -3,7 +3,7 @@ package flex
 import (
 	"errors"
 	"github.com/stretchr/testify/assert"
-	"sync/atomic"
+	"sync"
 	"testing"
 )
 
@@ -14,7 +14,7 @@ func TestWorkerFlex(t *testing.T) {
 	tests := []struct {
 		name        string
 		args        args
-		jobs        func(bwf BWorkerFlex) *atomic.Int64
+		jobs        func(bwf BWorkerFlex) *int64
 		wantRet     int64
 		wantErr     bool
 		wantErrsLen int
@@ -34,12 +34,12 @@ func TestWorkerFlex(t *testing.T) {
 			args: args{
 				opts: nil,
 			},
-			jobs: func(bwf BWorkerFlex) *atomic.Int64 {
-				ret := &atomic.Int64{}
+			jobs: func(bwf BWorkerFlex) *int64 {
+				var ret int64
 
 				bwf.Do(nil)
 				bwf.DoSimple(nil)
-				return ret
+				return &ret
 			},
 			wantRet:     0,
 			wantErr:     false,
@@ -50,23 +50,30 @@ func TestWorkerFlex(t *testing.T) {
 			args: args{
 				opts: []OptionFlex{WithRetry(3), WithError(nil), WithErrors(nil)}, // Error will be masked at runner
 			},
-			jobs: func(bwf BWorkerFlex) *atomic.Int64 {
-				ret := &atomic.Int64{}
+			jobs: func(bwf BWorkerFlex) *int64 {
+				var ret int64
+				var mu = &sync.Mutex{}
 
 				numJob, wantErrLen := 2000, 500
 				for i := 0; i < numJob; i++ {
 					icp := i
 					bwf.Do(func() error {
-						ret.Add(1)
+						mu.Lock()
+						defer mu.Unlock()
+						ret++
 						if icp < wantErrLen {
 							return errors.New("an error")
 						}
 						return nil
 					})
-					bwf.DoSimple(func() { ret.Add(1) })
+					bwf.DoSimple(func() {
+						mu.Lock()
+						defer mu.Unlock()
+						ret++
+					})
 
 				}
-				return ret
+				return &ret
 			},
 			wantRet:     (500 * (1 + 3)) + 1500 + 2000, // (wantErrLen*(1+numRetry)) + doSuccessLen + doSimple
 			wantErr:     true,
@@ -77,21 +84,26 @@ func TestWorkerFlex(t *testing.T) {
 			args: args{
 				opts: []OptionFlex{WithError(nil), WithErrors(nil)},
 			},
-			jobs: func(bwf BWorkerFlex) *atomic.Int64 {
-				ret := &atomic.Int64{}
+			jobs: func(bwf BWorkerFlex) *int64 {
+				var ret int64
+				var mu = &sync.Mutex{}
 
 				bwf.Do(func() error {
-					ret.Add(1)
+					mu.Lock()
+					defer mu.Unlock()
+					ret++
 					return errors.New("an error")
 				})
 				bwf.Do(func() error {
-					ret.Add(1)
+					mu.Lock()
+					defer mu.Unlock()
+					ret++
 					return errors.New("an error")
 				})
 				bwf.Wait()
 				bwf.ClearErr()
 				bwf.ClearErrs()
-				return ret
+				return &ret
 			},
 			wantRet:     2,
 			wantErr:     false,
@@ -116,7 +128,7 @@ func TestWorkerFlex(t *testing.T) {
 			if tt.jobs != nil {
 				gotNumExecuted := tt.jobs(bwp)
 				bwp.Wait()
-				assert.Equal(t, tt.wantRet, gotNumExecuted.Load())
+				assert.Equal(t, tt.wantRet, *gotNumExecuted)
 			}
 			if tt.wantErr {
 				assert.Error(t, err)
