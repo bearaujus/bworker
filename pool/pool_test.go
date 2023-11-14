@@ -178,7 +178,7 @@ func TestWorkerPool(t *testing.T) {
 				bwp.DoSimple(func() { // Blocked (blocking)
 					ret.Add(1)
 				})
-				// The total block time is ~ 1sec
+				// The total block time should be around ~ 1sec
 				ts := time.Since(start)
 				assert.LessOrEqual(t, time.Second, ts)
 				assert.LessOrEqual(t, ts, (time.Second)+(time.Millisecond*100)) // Add 0.1s as a threshold
@@ -208,7 +208,7 @@ func TestWorkerPool(t *testing.T) {
 				bwp.DoSimple(func() { // Queued at pool (not blocking)
 					ret.Add(1)
 				})
-				// The total block time is ~ 1sec
+				// The total block time should 0
 				ts := time.Since(start)
 				assert.LessOrEqual(t, ts, time.Millisecond*100) // Add 0.1s as a threshold
 				return ret
