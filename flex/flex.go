@@ -30,9 +30,10 @@ type bWorkerFlex struct {
 func NewBWorkerFlex(opts ...OptionFlex) BWorkerFlex {
 	o := &internal.OptionFlex{}
 	for _, opt := range opts {
-		if opt != nil {
-			opt.Apply(o)
+		if opt == nil {
+			continue
 		}
+		opt.Apply(o)
 	}
 	em := internal.NewErrorManager(o.Err, o.Errs)
 	bwf := &bWorkerFlex{

@@ -55,9 +55,10 @@ func NewBWorkerPool(concurrency int, opts ...OptionPool) BWorkerPool {
 	}
 	o := &internal.OptionPool{}
 	for _, opt := range opts {
-		if opt != nil {
-			opt.Apply(o)
+		if opt == nil {
+			continue
 		}
+		opt.Apply(o)
 	}
 	em := internal.NewErrorManager(o.Err, o.Errs)
 	bwp := &bWorkerPool{

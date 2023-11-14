@@ -10,5 +10,6 @@ test-race:
 
 .PHONY: test
 test:
+	@go mod tidy
 	@make test-no-race
 	@make test-race
