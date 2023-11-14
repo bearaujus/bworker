@@ -14,7 +14,6 @@ func (em *ErrorManager) SetIfNotNil(err error) {
 	}
 	em.mu.Lock()
 	defer em.mu.Unlock()
-	*em.e = err
 	if em.e != nil {
 		*em.e = err
 	}
