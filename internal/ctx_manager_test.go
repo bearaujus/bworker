@@ -20,6 +20,8 @@ func TestCtxManager(t *testing.T) {
 
 				assert.NotNil(t, cm.Ctx().Err())
 				assert.True(t, cm.IsDead())
+
+				assert.False(t, cm.Cancel())
 			},
 		},
 	}

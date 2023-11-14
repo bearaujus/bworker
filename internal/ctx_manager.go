@@ -20,9 +20,11 @@ func (cm *CtxManager) Ctx() context.Context {
 func (cm *CtxManager) Cancel() bool {
 	cm.rwMu.Lock()
 	defer cm.rwMu.Unlock()
-	cancelled := cm.c.Err() == nil
+	if cm.c.Err() != nil {
+		return false
+	}
 	cm.cl()
-	return cancelled
+	return true
 }
 
 func (cm *CtxManager) IsDead() bool {
