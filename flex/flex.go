@@ -47,7 +47,7 @@ func (bwf *bWorkerFlex) Do(job func() error) {
 	if job == nil {
 		return
 	}
-	pendingJob := bwf.jobManager.New(job)
+	pendingJob := bwf.jobManager.NewJob(job)
 	go pendingJob()
 }
 
@@ -55,7 +55,7 @@ func (bwf *bWorkerFlex) DoSimple(job func()) {
 	if job == nil {
 		return
 	}
-	pendingJob := bwf.jobManager.NewSimple(job)
+	pendingJob := bwf.jobManager.NewJobSimple(job)
 	go pendingJob()
 }
 

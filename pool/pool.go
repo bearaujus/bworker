@@ -3,7 +3,6 @@ package pool
 import (
 	"github.com/bearaujus/bworker/internal"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -40,15 +39,16 @@ type BWorkerPool interface {
 }
 
 type bWorkerPool struct {
+	ctxManager   *internal.CtxManager
 	jobManager   *internal.JobManager
 	jobPool      chan internal.PendingJob
 	errorManager *internal.ErrorManager
 	wgWorker     *sync.WaitGroup
-	shutdown     *atomic.Value
 }
 
 // NewBWorkerPool create a new BWorkerPool with OptionPool(s) and specified concurrency level.
-// Please use BWorkerPool.Shutdown() to avoid memory leak from an unclosed channel.
+//
+// Please use BWorkerPool.Shutdown() to avoid memory leak from the unclosed channel(s).
 func NewBWorkerPool(concurrency int, opts ...OptionPool) BWorkerPool {
 	if concurrency <= 0 {
 		concurrency = 1
@@ -61,25 +61,27 @@ func NewBWorkerPool(concurrency int, opts ...OptionPool) BWorkerPool {
 		opt.Apply(o)
 	}
 	em := internal.NewErrorManager(o.Err, o.Errs)
-	sd := &atomic.Value{}
-	sd.Store(false)
 	bwp := &bWorkerPool{
+		ctxManager: internal.NewCtxManager(),
 		jobManager: internal.NewJobManager(o.Retry, em),
 		// If o.JobPoolSize = 0. It's basically the same with o.JobPoolSize = 1
 		jobPool:      make(chan internal.PendingJob, o.JobPoolSize),
 		errorManager: em,
 		wgWorker:     &sync.WaitGroup{},
-		shutdown:     sd,
 	}
-	var delay time.Duration
-	if concurrency != 1 && o.WorkerStartupDelay != 0 {
-		delay = o.WorkerStartupDelay / time.Duration(concurrency-1)
+	var startupDelay time.Duration
+	if concurrency != 1 && o.StartupStagger != 0 {
+		startupDelay = o.StartupStagger / time.Duration(concurrency-1)
 	}
 	bwp.wgWorker.Add(concurrency)
 	go func() {
 		for i := 0; i < concurrency; i++ {
-			if i != 0 && o.WorkerStartupDelay != 0 && !bwp.shutdown.Load().(bool) {
-				time.Sleep(delay)
+			// the first worker will always start, before using startupDelay when using WithStartupStagger
+			if i != 0 && o.StartupStagger != 0 {
+				select {
+				case <-time.Tick(startupDelay):
+				case <-bwp.ctxManager.Ctx().Done():
+				}
 			}
 			// Create a worker
 			go func() {
@@ -95,23 +97,23 @@ func NewBWorkerPool(concurrency int, opts ...OptionPool) BWorkerPool {
 }
 
 func (bwp *bWorkerPool) Do(job func() error) {
-	if bwp.shutdown.Load().(bool) || job == nil {
+	if bwp.ctxManager.IsDead() || job == nil {
 		return
 	}
-	pendingJob := bwp.jobManager.New(job)
+	pendingJob := bwp.jobManager.NewJob(job)
 	bwp.jobPool <- pendingJob
 }
 
 func (bwp *bWorkerPool) DoSimple(job func()) {
-	if bwp.shutdown.Load().(bool) || job == nil {
+	if bwp.ctxManager.IsDead() || job == nil {
 		return
 	}
-	pendingJob := bwp.jobManager.NewSimple(job)
+	pendingJob := bwp.jobManager.NewJobSimple(job)
 	bwp.jobPool <- pendingJob
 }
 
 func (bwp *bWorkerPool) Wait() {
-	if bwp.shutdown.Load().(bool) {
+	if bwp.ctxManager.IsDead() {
 		return
 	}
 	// Wait until all jobs executed
@@ -119,19 +121,19 @@ func (bwp *bWorkerPool) Wait() {
 }
 
 func (bwp *bWorkerPool) Shutdown() {
-	if !bwp.shutdown.CompareAndSwap(false, true) {
+	if !bwp.ctxManager.Cancel() {
 		return
 	}
-	// Shut down all active workers
-	close(bwp.jobPool)
 	// Wait until all jobs executed
 	bwp.jobManager.Wait()
+	// Shut down all active workers
+	close(bwp.jobPool)
 	// Wait until all workers are dead
 	bwp.wgWorker.Wait()
 }
 
 func (bwp *bWorkerPool) IsDead() bool {
-	return bwp.shutdown.Load().(bool)
+	return bwp.ctxManager.IsDead()
 }
 
 func (bwp *bWorkerPool) ClearErr() {

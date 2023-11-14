@@ -32,7 +32,7 @@ func TestJobManager(t *testing.T) {
 				var ret int64
 				var mu = &sync.Mutex{}
 
-				j1 := jm.NewSimple(func() {
+				j1 := jm.NewJobSimple(func() {
 					mu.Lock()
 					defer mu.Unlock()
 					ret++
@@ -61,13 +61,13 @@ func TestJobManager(t *testing.T) {
 				var ret int64
 				var mu = &sync.Mutex{}
 
-				j1 := jm.NewSimple(func() {
+				j1 := jm.NewJobSimple(func() {
 					mu.Lock()
 					defer mu.Unlock()
 					ret++
 				})
 				go j1()
-				j2 := jm.New(func() error {
+				j2 := jm.NewJob(func() error {
 					mu.Lock()
 					defer mu.Unlock()
 					ret++
@@ -97,20 +97,20 @@ func TestJobManager(t *testing.T) {
 				var ret int64
 				var mu = &sync.Mutex{}
 
-				j1 := jm.NewSimple(func() {
+				j1 := jm.NewJobSimple(func() {
 					mu.Lock()
 					defer mu.Unlock()
 					ret++
 				})
 				go j1()
-				j2 := jm.New(func() error {
+				j2 := jm.NewJob(func() error {
 					mu.Lock()
 					defer mu.Unlock()
 					ret++
 					return errors.New("an error")
 				})
 				go j2()
-				j3 := jm.New(func() error {
+				j3 := jm.NewJob(func() error {
 					mu.Lock()
 					defer mu.Unlock()
 					ret++

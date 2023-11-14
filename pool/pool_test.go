@@ -25,7 +25,7 @@ func TestWorkerPool(t *testing.T) {
 			name: "test use default value",
 			args: args{
 				concurrency: -1,
-				opts:        []OptionPool{WithJobPoolSize(-1), WithWorkerStartupDelay(-1), WithRetry(-1), nil},
+				opts:        []OptionPool{WithJobPoolSize(-1), WithStartupStagger(-1), WithRetry(-1), nil},
 			},
 			jobs:        nil,
 			wantRet:     0,
@@ -115,7 +115,7 @@ func TestWorkerPool(t *testing.T) {
 			name: "test worker startup delay",
 			args: args{
 				concurrency: 2,
-				opts:        []OptionPool{WithWorkerStartupDelay(time.Second)},
+				opts:        []OptionPool{WithStartupStagger(time.Second)},
 			},
 			jobs: func(bwp BWorkerPool) *int64 {
 				var ret int64
@@ -150,6 +150,26 @@ func TestWorkerPool(t *testing.T) {
 				return &ret
 			},
 			wantRet:     3,
+			wantErr:     false,
+			wantErrsLen: 0,
+		},
+		{
+			name: "test worker startup delay shutdown in the middle",
+			args: args{
+				concurrency: 200,
+				opts:        []OptionPool{WithStartupStagger(time.Hour)},
+			},
+			jobs: func(bwp BWorkerPool) *int64 {
+				var ret int64
+
+				start := time.Now()
+				bwp.Shutdown()
+				// The total block time should 0
+				ts := time.Since(start)
+				assert.LessOrEqual(t, ts, time.Millisecond*100) // Add 0.1s as a threshold
+				return &ret
+			},
+			wantRet:     0,
 			wantErr:     false,
 			wantErrsLen: 0,
 		},

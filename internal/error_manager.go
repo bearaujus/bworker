@@ -44,9 +44,9 @@ func (em *ErrorManager) ClearErrs() {
 	}
 }
 
-func NewErrorManager(e *error, es *[]error) *ErrorManager {
-	if e == nil && es == nil {
+func NewErrorManager(err *error, errs *[]error) *ErrorManager {
+	if err == nil && errs == nil {
 		return nil
 	}
-	return &ErrorManager{mu: &sync.Mutex{}, e: e, es: es}
+	return &ErrorManager{mu: &sync.Mutex{}, e: err, es: errs}
 }

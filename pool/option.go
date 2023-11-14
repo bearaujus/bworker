@@ -23,21 +23,24 @@ func (w *withJobPoolSize) Apply(o *internal.OptionPool) {
 	o.JobPoolSize = w.n
 }
 
-// WithWorkerStartupDelay set the delay interval between the startup of each worker in the worker pool.
+// WithStartupStagger set the worker pool to stagger the startup of workers with the calculated delay.
 //
-// For example, if you specify 3 concurrencies and WithWorkerStartupDelay(time.Second),
-// it will start worker 1 at 0ms, worker 2 at 500ms and worker 3 at 1000ms.
-func WithWorkerStartupDelay(d time.Duration) OptionPool {
-	return &withWorkerStartupDelay{d}
+// For example, if you set 3 concurrencies and 1s delay, it will start worker 1 at 0ms, worker 2 at 500ms,
+// and worker 3 at 1000ms.
+//
+// This option will work if you set more than 1 concurrency since the first worker will always start immediately. Delay formula:
+//	delay = d / time.Duration(concurrency-1)
+func WithStartupStagger(d time.Duration) OptionPool {
+	return &withStartupStagger{d}
 }
 
-type withWorkerStartupDelay struct{ d time.Duration }
+type withStartupStagger struct{ d time.Duration }
 
-func (w *withWorkerStartupDelay) Apply(o *internal.OptionPool) {
+func (w *withStartupStagger) Apply(o *internal.OptionPool) {
 	if w.d <= 0 {
 		return
 	}
-	o.WorkerStartupDelay = w.d
+	o.StartupStagger = w.d
 }
 
 // WithRetry set the number of times to retry a failed job.
