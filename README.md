@@ -207,4 +207,4 @@ job 2 error
 ## License
 
 This project is licensed under the MIT License - see
-the [LICENSE]((https://github.com/bearaujus/bworker/blob/master/LICENSE)) file for details.
+the [LICENSE](https://github.com/bearaujus/bworker/blob/master/LICENSE) file for details.
