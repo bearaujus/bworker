@@ -1,14 +1,10 @@
-# BWorker - Simple & Efficient Worker Implementation in Go
+# BWorker - Worker and Concurrency Implementation in Go
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bearaujus/bjson/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bearaujus/bworker/blob/master/LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bearaujus/bworker)](https://goreportcard.com/report/github.com/bearaujus/bworker)
 
-BWorker is a lightweight and easy-to-use Go library that provides a simple and efficient way to execute concurrent
-tasks.
-
-It is designed to be flexible enough to handle a wide range of use cases, from simple tasks such as initializing app
-resources
-to more complex tasks such as processing large use-cases.
+This package introduces a lightweight and easy-to-use Go library that empowers you with a simple and efficient method to
+execute concurrent tasks.
 
 ## Installation
 
@@ -18,9 +14,132 @@ To install BWorker, you can run the following command:
 go get github.com/bearaujus/bworker
 ```
 
-## Usage Overview
+## Worker Types
 
-Here is the simple usage overview for BWorker Pool:
+### 1. BWorker Pool
+
+An BWorker instance with **specified** concurrency level.
+
+- Import:
+
+```go
+import "github.com/bearaujus/bworker/pool"
+```
+
+- Initialize:
+
+```go
+pool.NewBWorkerPool(concurrency int, opts ...OptionPool)
+```
+
+- List available options:
+
+```go
+// WithJobPoolSize set the size of the job pool size. If you're not using this option, the default job pool size is 1.
+func WithJobPoolSize(n int) OptionPool
+
+// WithStartupStagger set the worker pool to stagger the startup of workers with the calculated delay.
+//
+// For example, if you set 3 concurrencies and 1s delay, it will start worker 1 at 0ms, worker 2 at 500ms,
+// and worker 3 at 1000ms.
+//
+// This option will work if you set more than 1 concurrency since the first worker will always start immediately. Delay formula:
+//	delay = d / time.Duration(concurrency-1)
+func WithStartupStagger(d time.Duration) OptionPool
+
+// WithRetry set the number of times to retry a failed job.
+func WithRetry(n int) OptionPool
+
+// WithError set a pointer to an error variable that will be populated if any job fails.
+func WithError(e *error) OptionPool
+
+// WithErrors set a pointer to a slice of error variables that will be populated if any job fails.
+func WithErrors(es *[]error) OptionPool
+```
+
+- List available functions:
+
+```go
+// Do submit a job to be executed by a worker. If IsDead this function will perform no-op.
+// This function may block the thread (see pool/pool_test.go for more details).
+//
+// To avoid thread blocking, you can adjust the inputted job like adding context with deadline to it.
+// Also, you can consider using WithJobPoolSize.
+func Do(job func () error)
+
+// DoSimple submit a job to be executed by a worker without an error. If IsDead this function will perform no-op.
+// This function may block the thread (see pool/pool_test.go for more details).
+//
+// To avoid thread blocking, you can adjust the inputted job like adding context with deadline to it.
+// Also, you can consider using WithJobPoolSize.
+func DoSimple(job func ())
+
+// Wait wait for all jobPool to be completed. If IsDead this function will perform no-op.
+func Wait()
+
+// Shutdown shut down the worker pool. After performing this operation, Do and DoSimple will perform no-op.
+// If IsDead this function will perform no-op.
+func Shutdown()
+
+// IsDead indicates the BWorkerPool is already shut down or not.
+func IsDead() bool
+
+// ClearErr reset the error variable when you are using WithErrors.
+func ClearErr()
+
+// ClearErrs reset the slice of error variables when you are using WithErrors.
+func ClearErrs()
+```
+
+### 2. BWorker Flex
+
+An BWorker instance with **unlimited** concurrency level.
+
+- Import:
+
+```go
+import "github.com/bearaujus/bworker/flex"
+```
+
+- Initialize:
+
+```go
+flex.NewBWorkerFlex(opts ...OptionFlex)
+```
+
+- List available options:
+
+```go
+// WithRetry set the number of times to retry a failed job.
+func WithRetry(n int) OptionFlex
+
+// WithError set a pointer to an error variable that will be populated if any job fails.
+func WithError(e *error) OptionFlex
+
+// WithErrors set a pointer to a slice of error variables that will be populated if any job fails.
+func WithErrors(es *[]error) OptionFlex
+```
+
+- List available functions:
+
+```go
+// Do submit a job to be executed by a worker.
+Do(job func () error)
+
+// DoSimple submit a job to be executed by a worker without an error.
+DoSimple(job func ())
+
+// Wait wait for all jobs to be completed.
+Wait()
+
+// ClearErr reset the error variable when you are using WithErrors.
+ClearErr()
+
+// ClearErrs reset the slice of error variables when you are using WithErrors.
+ClearErrs()
+```
+
+## Usage Example
 
 ```go
 package main
@@ -69,8 +188,6 @@ func main() {
 }
 ```
 
-Output:
-
 ```go
 job 1 retrying...
 job 1 retrying...
@@ -82,109 +199,6 @@ job 2 error
 [job 1 error job 2 error]
 ```
 
-## Worker Types
-
-### 1. BWorker Pool
-
-An BWorker instance with **specified** concurrency level.
-
-import:
-
-```go
-import "github.com/bearaujus/bworker/pool"
-```
-
-Init:
-
-```go
-pool.NewBWorkerPool(concurrency int, opts ...OptionPool)
-```
-
-List available options:
-
->
-> - **WithJobPoolSize** - Set the size of the job pool size.
-> - **WithStartupStagger** - Set the worker pool to stagger the startup of workers with the calculated delay.
-> - **WithRetry** - Set the number of times to retry a failed job.
-> - **WithError** - Set a pointer to an error variable that will be populated if any job fails.
-> - **WithErrors** - Set a pointer to a slice of error variables that will be populated if any job fails.
-
-List available functions:
-
-```go
-// Do submit a job to be executed by a worker. If IsDead this function will perform no-op.
-// This function may block the thread (see pool/pool_test.go for more details).
-//
-// To avoid thread blocking, you can adjust the inputted job like adding context with deadline to it.
-// Also, you can consider using WithJobPoolSize.
-Do(job func () error)
-
-// DoSimple submit a job to be executed by a worker without an error. If IsDead this function will perform no-op.
-// This function may block the thread (see pool/pool_test.go for more details).
-//
-// To avoid thread blocking, you can adjust the inputted job like adding context with deadline to it.
-// Also, you can consider using WithJobPoolSize.
-DoSimple(job func ())
-
-// Wait wait for all jobPool to be completed. If IsDead this function will perform no-op.
-Wait()
-
-// Shutdown shut down the worker pool. After performing this operation, Do and DoSimple will perform no-op.
-// If IsDead this function will perform no-op.
-Shutdown()
-
-// IsDead indicates the BWorkerPool is already shut down or not.
-IsDead() bool
-
-// ClearErr reset the error variable when you are using WithErrors.
-ClearErr()
-
-// ClearErrs reset the slice of error variables when you are using WithErrors.
-ClearErrs()
-```
-
-### 2. BWorker Flex
-
-An BWorker instance with **unlimited** concurrency level.
-
-import:
-
-```go
-import "github.com/bearaujus/bworker/flex"
-```
-
-Init:
-
-```go
-flex.NewBWorkerFlex(opts ...OptionFlex)
-```
-
-List available options:
-
->
-> - **WithRetry** - Set the number of times to retry a failed job.
-> - **WithError** - Set a pointer to an error variable that will be populated if any job fails.
-> - **WithErrors** - Set a pointer to a slice of error variables that will be populated if any job fails.
-
-List available functions:
-
-```go
-// Do submit a job to be executed by a worker.
-Do(job func () error)
-
-// DoSimple submit a job to be executed by a worker without an error.
-DoSimple(job func ())
-
-// Wait wait for all jobs to be completed.
-Wait()
-
-// ClearErr reset the error variable when you are using WithErrors.
-ClearErr()
-
-// ClearErrs reset the slice of error variables when you are using WithErrors.
-ClearErrs()
-```
-
 ## TODO
 
 - Improve documentation at [README.md](https://github.com/bearaujus/bworker/blob/master/README.md)
@@ -192,4 +206,5 @@ ClearErrs()
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see
+the [LICENSE]((https://github.com/bearaujus/bworker/blob/master/LICENSE)) file for details.
