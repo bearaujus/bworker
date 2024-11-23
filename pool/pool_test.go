@@ -241,40 +241,6 @@ func TestWorkerPool(t *testing.T) {
 			wantErr:     false,
 			wantErrsLen: 0,
 		},
-		{
-			name: "test not blocked with jobs pool size",
-			args: args{
-				concurrency: 1,
-				opts:        []OptionPool{WithJobPoolSize(2)},
-			},
-			jobs: func(bwp BWorkerPool) *int64 {
-				var ret int64
-				var mu = &sync.Mutex{}
-
-				start := time.Now()
-				bwp.DoSimple(func() { // Consumed by the worker (not blocking)
-					time.Sleep(time.Second)
-					ret++
-				})
-				bwp.DoSimple(func() { // Queued at pool (not blocking)
-					mu.Lock()
-					defer mu.Unlock()
-					ret++
-				})
-				bwp.DoSimple(func() { // Queued at pool (not blocking)
-					mu.Lock()
-					defer mu.Unlock()
-					ret++
-				})
-				// The total block time should 0
-				ts := time.Since(start)
-				assert.LessOrEqual(t, ts, time.Millisecond*100) // Add 0.1s as a threshold
-				return &ret
-			},
-			wantRet:     3,
-			wantErr:     false,
-			wantErrsLen: 0,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

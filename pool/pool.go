@@ -53,7 +53,7 @@ func NewBWorkerPool(concurrency int, opts ...OptionPool) BWorkerPool {
 	if concurrency <= 0 {
 		concurrency = 1
 	}
-	o := &internal.OptionPool{}
+	o := &internal.OptionPool{JobPoolSize: concurrency}
 	for _, opt := range opts {
 		if opt == nil {
 			continue

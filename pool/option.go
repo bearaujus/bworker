@@ -10,6 +10,7 @@ type OptionPool interface {
 }
 
 // WithJobPoolSize set the size of the job pool size. If you're not using this option, the default job pool size is 1.
+// [DEPRECATED] pool size will automatically adjust with num of concurrency.
 func WithJobPoolSize(n int) OptionPool {
 	return &withJobPoolSize{n}
 }
@@ -17,10 +18,7 @@ func WithJobPoolSize(n int) OptionPool {
 type withJobPoolSize struct{ n int }
 
 func (w *withJobPoolSize) Apply(o *internal.OptionPool) {
-	if w.n <= 0 {
-		return
-	}
-	o.JobPoolSize = w.n
+	// [DEPRECATED]
 }
 
 // WithStartupStagger set the worker pool to stagger the startup of workers with the calculated delay.
@@ -29,6 +27,7 @@ func (w *withJobPoolSize) Apply(o *internal.OptionPool) {
 // and worker 3 at 1000ms.
 //
 // This option will work if you set more than 1 concurrency since the first worker will always start immediately. Delay formula:
+//
 //	delay = d / time.Duration(concurrency-1)
 func WithStartupStagger(d time.Duration) OptionPool {
 	return &withStartupStagger{d}
