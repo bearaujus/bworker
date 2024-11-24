@@ -35,9 +35,6 @@ pool.NewBWorkerPool(concurrency int, opts ...OptionPool)
 - List available options:
 
 ```go
-// WithJobPoolSize set the size of the job pool size. If you're not using this option, the default job pool size is 1.
-func WithJobPoolSize(n int) OptionPool
-
 // WithStartupStagger set the worker pool to stagger the startup of workers with the calculated delay.
 //
 // For example, if you set 3 concurrencies and 1s delay, it will start worker 1 at 0ms, worker 2 at 500ms,
